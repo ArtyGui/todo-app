@@ -25,6 +25,45 @@ db.serialize(() => {
   )`);
 });
 
+// GET - Listar todas as tarefas
+app.get('/api/tasks', (req, res) => {
+  db.all('SELECT * FROM tasks ORDER BY created_at DESC', (err, rows) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.json(rows);
+  });
+});
+
+// POST - Criar nova tarefa
+app.post('/api/tasks', (req, res) => {
+  const { title, description, due_date } = req.body;
+  
+  if (!title || title.trim() === '') {
+    return res.status(400).json({ error: 'Título é obrigatório' });
+  }
+
+  const stmt = db.prepare(`
+    INSERT INTO tasks (title, description, due_date, status) 
+    VALUES (?, ?, ?, 'pending')
+  `);
+  
+  stmt.run([title.trim(), description || null, due_date || null], function(err) {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    
+    db.get('SELECT * FROM tasks WHERE id = ?', [this.lastID], (err, row) => {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+      res.status(201).json(row);
+    });
+  });
+  
+  stmt.finalize();
+});
+
 // Rota de teste
 app.get('/', (req, res) => {
   res.json({ message: 'API To-Do List funcionando!' });
