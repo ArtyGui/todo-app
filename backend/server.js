@@ -64,6 +64,61 @@ app.post('/api/tasks', (req, res) => {
   stmt.finalize();
 });
 
+// GET - Buscar tarefa por ID
+app.get('/api/tasks/:id', (req, res) => {
+  const { id } = req.params;
+  db.get('SELECT * FROM tasks WHERE id = ?', [id], (err, row) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    if (!row) {
+      return res.status(404).json({ error: 'Tarefa não encontrada' });
+    }
+    res.json(row);
+  });
+});
+
+// PUT - Atualizar tarefa
+app.put('/api/tasks/:id', (req, res) => {
+  const { id } = req.params;
+  const { title, description, due_date, status } = req.body;
+  
+  if (!title || title.trim() === '') {
+    return res.status(400).json({ error: 'Título é obrigatório' });
+  }
+
+  const stmt = db.prepare(`
+    UPDATE tasks 
+    SET title = ?, description = ?, due_date = ?, status = ?, updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+  `);
+  
+  stmt.run([
+    title.trim(), 
+    description || null, 
+    due_date || null, 
+    status || 'pending', 
+    id
+  ], function(err) {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    
+    if (this.changes === 0) {
+      return res.status(404).json({ error: 'Tarefa não encontrada' });
+    }
+    
+    db.get('SELECT * FROM tasks WHERE id = ?', [id], (err, row) => {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+      res.json(row);
+    });
+  });
+  
+  stmt.finalize();
+});
+
 // Rota de teste
 app.get('/', (req, res) => {
   res.json({ message: 'API To-Do List funcionando!' });
