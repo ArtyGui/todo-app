@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const sqlite3 = require('sqlite3').verbose();
+const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -25,6 +26,8 @@ db.serialize(() => {
   )`);
 });
 
+// Rotas da API
+
 // GET - Listar todas as tarefas
 app.get('/api/tasks', (req, res) => {
   db.all('SELECT * FROM tasks ORDER BY created_at DESC', (err, rows) => {
@@ -32,6 +35,20 @@ app.get('/api/tasks', (req, res) => {
       return res.status(500).json({ error: err.message });
     }
     res.json(rows);
+  });
+});
+
+// GET - Buscar tarefa por ID
+app.get('/api/tasks/:id', (req, res) => {
+  const { id } = req.params;
+  db.get('SELECT * FROM tasks WHERE id = ?', [id], (err, row) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    if (!row) {
+      return res.status(404).json({ error: 'Tarefa não encontrada' });
+    }
+    res.json(row);
   });
 });
 
@@ -53,6 +70,7 @@ app.post('/api/tasks', (req, res) => {
       return res.status(500).json({ error: err.message });
     }
     
+    // Retornar a tarefa criada
     db.get('SELECT * FROM tasks WHERE id = ?', [this.lastID], (err, row) => {
       if (err) {
         return res.status(500).json({ error: err.message });
@@ -62,20 +80,6 @@ app.post('/api/tasks', (req, res) => {
   });
   
   stmt.finalize();
-});
-
-// GET - Buscar tarefa por ID
-app.get('/api/tasks/:id', (req, res) => {
-  const { id } = req.params;
-  db.get('SELECT * FROM tasks WHERE id = ?', [id], (err, row) => {
-    if (err) {
-      return res.status(500).json({ error: err.message });
-    }
-    if (!row) {
-      return res.status(404).json({ error: 'Tarefa não encontrada' });
-    }
-    res.json(row);
-  });
 });
 
 // PUT - Atualizar tarefa
@@ -108,6 +112,7 @@ app.put('/api/tasks/:id', (req, res) => {
       return res.status(404).json({ error: 'Tarefa não encontrada' });
     }
     
+    // Retornar a tarefa atualizada
     db.get('SELECT * FROM tasks WHERE id = ?', [id], (err, row) => {
       if (err) {
         return res.status(500).json({ error: err.message });
@@ -139,13 +144,25 @@ app.delete('/api/tasks/:id', (req, res) => {
   stmt.finalize();
 });
 
-// Rota de teste
-app.get('/', (req, res) => {
-  res.json({ message: 'API To-Do List funcionando!' });
+// Middleware para tratamento de erros
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ error: 'Algo deu errado!' });
 });
 
 // Iniciar servidor
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
-  console.log(`API disponível em http://localhost:${PORT}`);
+  console.log(`API disponível em http://localhost:${PORT}/api/tasks`);
+});
+
+// Fechar conexão com o banco ao encerrar o processo
+process.on('SIGINT', () => {
+  db.close((err) => {
+    if (err) {
+      console.error(err.message);
+    }
+    console.log('Conexão com o banco de dados fechada.');
+    process.exit(0);
+  });
 });
