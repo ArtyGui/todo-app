@@ -119,6 +119,26 @@ app.put('/api/tasks/:id', (req, res) => {
   stmt.finalize();
 });
 
+// DELETE - Remover tarefa
+app.delete('/api/tasks/:id', (req, res) => {
+  const { id } = req.params;
+  
+  const stmt = db.prepare('DELETE FROM tasks WHERE id = ?');
+  stmt.run([id], function(err) {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    
+    if (this.changes === 0) {
+      return res.status(404).json({ error: 'Tarefa não encontrada' });
+    }
+    
+    res.json({ message: 'Tarefa removida com sucesso' });
+  });
+  
+  stmt.finalize();
+});
+
 // Rota de teste
 app.get('/', (req, res) => {
   res.json({ message: 'API To-Do List funcionando!' });
